@@ -1,0 +1,17 @@
+{
+  "name": "projeto_final",
+  "version": "1.0.0",
+  "description": "Loja do seu zé",
+  "license": "ISC",
+  "author": "Germano",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.9",
+    "node": "^26.11.1"
+  }
+}
