@@ -1,38 +1,5 @@
-// Servidor da Loja do Zé
-// O navegador conversa com ESTE servidor (mesma origem, então não há CORS).
-// Só o servidor conversa com o Neon, e a senha do banco nunca chega ao navegador.
-const http = require('http')
-const fs = require('fs')
-const path = require('path')
-const { executarQueryNeon } = require('./script_db_quantum.js')
-
-const PORTA = process.env.PORT || 3001
-
-const arquivos = {
-    '/': { arquivo: 'index.html', tipo: 'text/html; charset=utf-8' },
-    '/index.html': { arquivo: 'index.html', tipo: 'text/html; charset=utf-8' },
-    '/app.js': { arquivo: 'app.js', tipo: 'text/javascript; charset=utf-8' },
-    '/style.css': { arquivo: 'style.css', tipo: 'text/css; charset=utf-8' }
-}
-
-function responderJSON(res, status, dados) {
-    res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' })
-    res.end(JSON.stringify(dados))
-}
-
-function lerCorpo(req) {
-    return new Promise((resolve, reject) => {
-        let corpo = ''
-        req.on('data', pedaco => corpo += pedaco)
-        req.on('end', () => {
-            try { resolve(JSON.parse(corpo || '{}')) }
-            catch (erro) { reject(erro) }
-        })
-    })
-}
-
 async function gerenciarRequisicao(req, res) {
-    // Limpa parâmetros de query da URL (ex: /?fbclid=123 -> /)
+    // ADICIONE [0] AQUI:
     const urlLimpa = req.url.split('?')[0]
 
     // GET /api/categorias -> lista as categorias
@@ -111,24 +78,14 @@ async function gerenciarRequisicao(req, res) {
     // Arquivos da página
     const rota = arquivos[urlLimpa]
     if (rota) {
-        const caminhoArquivo = path.join(__dirname, rota.arquivo)
+        const caminhoArquivo = path.join(process.cwd(), rota.arquivo)
         if (fs.existsSync(caminhoArquivo)) {
+            const conteudo = fs.readFileSync(caminhoArquivo)
             res.writeHead(200, { 'Content-Type': rota.tipo })
-            return fs.createReadStream(caminhoArquivo).pipe(res)
+            return res.end(conteudo)
         }
     }
 
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' })
     res.end('Página não encontrada')
 }
-
-// Roda o servidor localmente apenas quando NÃO estiver na Vercel
-if (!process.env.VERCEL) {
-    const servidor = http.createServer(gerenciarRequisicao)
-    servidor.listen(PORTA, () => {
-        console.log(`Loja do Zé rodando em http://localhost:${PORTA}`)
-    })
-}
-
-// Exporta a função para a Vercel executar como Serverless Function
-module.exports = gerenciarRequisicao
