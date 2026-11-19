@@ -13,13 +13,14 @@ let itemEmEdicao = null
 
 async function carregarCategorias() {
 
-
+// console.log('categoria')
     try {
         const resposta = await fetch('/api/categorias')
         categorias = await resposta.json()
 
         if (!resposta.ok) throw new Error (categorias.error)
-            renderizarLista(categoriasResposta)
+            console.log(categorias)
+            renderizarLista()
     } catch (error) {
         mensagem.textContent = `Erro ${error.menssage}`
     }
@@ -27,21 +28,28 @@ async function carregarCategorias() {
 
 
 function renderizarLista(){
+    console.log(lista)
     lista.innerHTML = ''
+       
+
     if(categorias.length===0){
         lista.innerHTML='<li class="lista-vazia">Nenhuma categoria cadastra</li>'
         return
     }
+
     for(const categoria of categorias)
     {
+        console.log("categoria" , categoria.id_categoria === itemEmEdicao)
         lista.appendChild(
-            categoria.id_categoria === idEmEdicao? criarItemEdicao(categoria):criarItemVisualizacao(categoria)
+            categoria.id_categoria === itemEmEdicao? criarItemEdicao(categoria):criarItemVisualizacao(categoria)
         )
     }
 }
 
 
 function criarItemVisualizacao(categoria){
+
+    console.log(categoria)
     const item = document.createElement('li')
     item.className='categoria-item'
 
@@ -53,8 +61,8 @@ function criarItemVisualizacao(categoria){
     btnEditar.textContent='Editar'
     btnEditar.className='btn btn-editar'
     btnEditar.addEventListener('click',()=>{
-        idEmEdicao= categoria.id_categoria
-        renderizarLista
+        itemEmEdicao= categoria.id_categoria
+        renderizarLista()
     })
 
     const btnExcluir = document.createElement('button')
@@ -132,7 +140,7 @@ function criarItemEdicao(categoria){
     btnCancelar.textContent = 'Cancelar'
     btnCancelar.className = 'btn btn-scancelar'
     btnCancelar.addEventListener('click',() => {
-        idEmEdicao = null
+        itemEmEdicao = null
         renderizarLista()
     })
 
@@ -143,6 +151,47 @@ function criarItemEdicao(categoria){
     input.focus()
     return item
 
+}
+
+async function salvarEdicao(categoria, novaDescricao) {
+
+    const resposta = await fetch(`/api/categorias/${categoria.id_categoria}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ descricao: novaDescricao })
+    })
+
+    const dados = await resposta.json()
+
+    if (resposta.ok) {
+        mostrarMensagem(`Categoria "${dados.descricao}" atualizada!`)
+        itemEmEdicao = null
+        carregarCategorias()
+    }
+    else {
+        mostrarMensagem(`Erro: ${dados.erro}`, 'erro')
+    }
+}
+
+async function excluirCategoria(categoria) {
+
+    const confirmar = confirm(`Deseja excluir a categoria "${categoria.descricao}"?`)
+
+    if (!confirmar) return
+
+    const resposta = await fetch(`/api/categorias/${categoria.id_categoria}`, {
+        method: 'DELETE'
+    })
+
+    const dados = await resposta.json()
+
+    if (resposta.ok) {
+        mostrarMensagem('Categoria excluída com sucesso!')
+        carregarCategorias()
+    }
+    else {
+        mostrarMensagem(`Erro: ${dados.erro}`, 'erro')
+    }
 }
 
 

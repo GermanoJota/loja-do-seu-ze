@@ -10,13 +10,15 @@ const neonHttpEndPoint = `https://${host}/sql`
 
 async function executarQueryNeon(querySQL, parametros)
 {
+
+   
     try {
         const resposta = await fetch(neonHttpEndPoint,
             {
                 method:'POST',
                 headers:{
-                    'Neon-connectio-String': DATABASE_URL,
-                    'Content-Type': 'aplication/json'
+                    'Neon-Connection-String': DATABASE_URL,
+                    'Content-Type': 'application/json'
                 },
                 body:JSON.stringify({
                     query:querySQL,
@@ -37,7 +39,6 @@ async function executarQueryNeon(querySQL, parametros)
         return null
     }    
 }
-
 
 
 module.exports = {executarQueryNeon}
