@@ -13,7 +13,6 @@ const arquivos = {
     '/index.html': { arquivo: 'index.html', tipo: 'text/html; charset=utf-8' },
     '/app.js': { arquivo: 'app.js', tipo: 'text/javascript; charset=utf-8' },
     '/style.css': { arquivo: 'style.css', tipo: 'text/css; charset=utf-8' }
-    
 }
 
 function responderJSON(res, status, dados) {
@@ -32,18 +31,19 @@ function lerCorpo(req) {
     })
 }
 
-const servidor = http.createServer(async (req, res) => {
+async function gerenciarRequisicao(req, res) {
+    // Limpa parâmetros de query da URL (ex: /?fbclid=123 -> /)
+    const urlLimpa = req.url.split('?')[0]
+
     // GET /api/categorias -> lista as categorias
-     
-    if (req.url === '/api/categorias' && req.method === 'GET') {
-     
+    if (urlLimpa === '/api/categorias' && req.method === 'GET') {
         const linhas = await executarQueryNeon('SELECT * FROM categoria ORDER BY id_categoria')
         if (linhas === null) return responderJSON(res, 500, { erro: 'Falha ao consultar o banco' })
         return responderJSON(res, 200, linhas)
     }
 
     // POST /api/categorias -> cadastra uma categoria nova
-    if (req.url === '/api/categorias' && req.method === 'POST') {
+    if (urlLimpa === '/api/categorias' && req.method === 'POST') {
         let corpo
         try { corpo = await lerCorpo(req) }
         catch { return responderJSON(res, 400, { erro: 'JSON inválido' }) }
@@ -60,81 +60,75 @@ const servidor = http.createServer(async (req, res) => {
     }
 
     // PUT /api/categorias/:id -> atualiza uma categoria
-if (req.url.startsWith('/api/categorias/') && req.method === 'PUT') {
+    if (urlLimpa.startsWith('/api/categorias/') && req.method === 'PUT') {
+        const id = urlLimpa.split('/')[3]
 
-    const id = req.url.split('/')[3]
+        let corpo
+        try { corpo = await lerCorpo(req) }
+        catch { return responderJSON(res, 400, { erro: 'JSON inválido' }) }
 
-    let corpo
-    try { corpo = await lerCorpo(req) }
-    catch { return responderJSON(res, 400, { erro: 'JSON inválido' }) }
+        const descricao = (corpo.descricao || '').trim()
+        if (!descricao) {
+            return responderJSON(res, 400, { erro: 'Informe a descrição' })
+        }
 
-    const descricao = (corpo.descricao || '').trim()
+        const linhas = await executarQueryNeon(
+            'UPDATE categoria SET descricao = $1 WHERE id_categoria = $2 RETURNING *',
+            [descricao, id]
+        )
 
-    if (!descricao) {
-        return responderJSON(res, 400, { erro: 'Informe a descrição' })
+        if (linhas === null) {
+            return responderJSON(res, 500, { erro: 'Falha ao atualizar no banco' })
+        }
+
+        if (linhas.length === 0) {
+            return responderJSON(res, 404, { erro: 'Categoria não encontrada' })
+        }
+
+        return responderJSON(res, 200, linhas[0])
     }
 
-    const linhas = await executarQueryNeon(
-        'UPDATE categoria SET descricao = $1 WHERE id_categoria = $2 RETURNING *',
-        [descricao, id]
-    )
+    // DELETE /api/categorias/:id -> exclui uma categoria
+    if (urlLimpa.startsWith('/api/categorias/') && req.method === 'DELETE') {
+        const id = urlLimpa.split('/')[3]
 
-    if (linhas === null) {
-        return responderJSON(res, 500, { erro: 'Falha ao atualizar no banco' })
+        const linhas = await executarQueryNeon(
+            'DELETE FROM categoria WHERE id_categoria = $1 RETURNING *',
+            [id]
+        )
+
+        if (linhas === null) {
+            return responderJSON(res, 500, { erro: 'Falha ao excluir do banco' })
+        }
+
+        if (linhas.length === 0) {
+            return responderJSON(res, 404, { erro: 'Categoria não encontrada' })
+        }
+
+        return responderJSON(res, 200, { mensagem: 'Categoria excluída com sucesso' })
     }
-
-    if (linhas.length === 0) {
-        return responderJSON(res, 404, { erro: 'Categoria não encontrada' })
-    }
-
-    return responderJSON(res, 200, linhas[0])
-}
-
-// DELETE /api/categorias/:id -> exclui uma categoria
-if (req.url.startsWith('/api/categorias/') && req.method === 'DELETE') {
-
-    const id = req.url.split('/')[3]
-
-    const linhas = await executarQueryNeon(
-        'DELETE FROM categoria WHERE id_categoria = $1 RETURNING *',
-        [id]
-    )
-
-    if (linhas === null) {
-        return responderJSON(res, 500, { erro: 'Falha ao excluir do banco' })
-    }
-
-    if (linhas.length === 0) {
-        return responderJSON(res, 404, { erro: 'Categoria não encontrada' })
-    }
-
-    return responderJSON(res, 200, { mensagem: 'Categoria excluída com sucesso' })
-}
 
     // Arquivos da página
-    const rota = arquivos[req.url]
+    const rota = arquivos[urlLimpa]
     if (rota) {
-        res.writeHead(200, { 'Content-Type': rota.tipo })
-        return fs.createReadStream(path.join(__dirname, rota.arquivo)).pipe(res)
+        const caminhoArquivo = path.join(__dirname, rota.arquivo)
+        if (fs.existsSync(caminhoArquivo)) {
+            res.writeHead(200, { 'Content-Type': rota.tipo })
+            return fs.createReadStream(caminhoArquivo).pipe(res)
+        }
     }
 
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' })
     res.end('Página não encontrada')
-})
-
-servidor.listen(PORTA, () => {
-    console.log(`Loja do Zé rodando em http://localhost:${PORTA}`)
-})
-
-
-// Exemplo do final do seu server.js
-if (process.env.NODE_ENV !== 'production') {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
 }
 
+// Roda o servidor localmente apenas quando NÃO estiver na Vercel
+if (!process.env.VERCEL) {
+    const servidor = http.createServer(gerenciarRequisicao)
+    servidor.listen(PORTA, () => {
+        console.log(`Loja do Zé rodando em http://localhost:${PORTA}`)
+    })
+}
 
-
-
-module.exports = servidor;
-
+// Exporta a função para a Vercel executar como Serverless Function
+module.exports = gerenciarRequisicao
