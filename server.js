@@ -125,3 +125,12 @@ if (req.url.startsWith('/api/categorias/') && req.method === 'DELETE') {
 servidor.listen(PORTA, () => {
     console.log(`Loja do Zé rodando em http://localhost:${PORTA}`)
 })
+
+
+// Exemplo do final do seu server.js
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+}
+
+module.exports = app;
